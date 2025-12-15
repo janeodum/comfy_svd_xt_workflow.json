@@ -20,6 +20,15 @@ RUN if [ -f /comfyui/custom_nodes/ComfyUI-VideoHelperSuite/requirements.txt ]; t
     fi
 
 # -------------------------------------------------------------------
+# 1b) Install Flux NF4 loader node + deps (CheckpointLoaderNF4)
+# -------------------------------------------------------------------
+RUN cd /comfyui/custom_nodes \
+  && git clone --depth 1 https://github.com/comfyanonymous/ComfyUI_bitsandbytes_NF4.git
+
+# bitsandbytes is required for NF4 checkpoints
+RUN pip install --no-cache-dir bitsandbytes
+
+# -------------------------------------------------------------------
 # 2) Download Wan 2.1 models (your existing lines)
 # -------------------------------------------------------------------
 RUN comfy model download \
@@ -56,12 +65,6 @@ RUN comfy model download \
 # -------------------------------------------------------------------
 # 4) Add Flux checkpoint (flux1-dev-bnb-nf4v2.safetensors)
 # -------------------------------------------------------------------
-# You MUST use the *direct* HF resolve URL to the .safetensors file.
-# Put it here once you have it.
-# Example format:
-#   https://huggingface.co/<owner>/<repo>/resolve/main/<path>/flux1-dev-bnb-nf4v2.safetensors
-#
-# Uncomment + set the URL when ready:
 RUN comfy model download \
   --url https://huggingface.co/lllyasviel/flux1-dev-bnb-nf4/resolve/main/flux1-dev-bnb-nf4-v2.safetensors  \
   --relative-path models/checkpoints \
