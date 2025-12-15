@@ -46,12 +46,12 @@ RUN comfy model download \
 # 3) Add Flux LoRA (Canopus Pixar 3D) into models/loras
 # -------------------------------------------------------------------
 # NOTE: The file name in the repo might not be exactly this.
-# If the build fails with 404, open the HF repo "Files and versions"
+# If the build fails with 404, open the HF repo "Files and versions"Canopus-Pixar-3D-Flux-LoRA
 # and replace the URL + filename with the real one.
 RUN comfy model download \
-  --url https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-Flux-LoRA.safetensors \
+  --url https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-FluxDev-LoRA.safetensors \
   --relative-path models/loras \
-  --filename Canopus-Pixar-3D-Flux-LoRA.safetensors
+  --filename Canopus-Pixar-3D-FluxDev-LoRA.safetensors
 
 # -------------------------------------------------------------------
 # 4) Add Flux checkpoint (flux1-dev-bnb-nf4v2.safetensors)
