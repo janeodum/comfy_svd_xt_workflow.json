@@ -1,6 +1,6 @@
 # clean base image containing only comfyui, comfy-cli and comfyui-manager
 FROM runpod/worker-comfyui:5.5.0-base
-
+#some test
 # ---- system deps (git for cloning nodes, ffmpeg for video writing, curl for debugging) ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git ffmpeg curl ca-certificates \
