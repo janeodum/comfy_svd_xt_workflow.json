@@ -62,30 +62,36 @@ RUN comfy model download \
   --relative-path models/loras \
   --filename Canopus-Pixar-3D-FluxDev-LoRA.safetensors
 
-# -------------------------------------------------------------------
-# 4) Add Flux checkpoint (flux1-dev-bnb-nf4v2.safetensors)
-# -------------------------------------------------------------------
-RUN comfy model download \
-  --url https://huggingface.co/lllyasviel/flux1-dev-bnb-nf4/resolve/main/flux1-dev-bnb-nf4-v2.safetensors \
-  --relative-path models/diffusion_models \
-  --filename flux1-dev-bnb-nf4-v2.safetensors
+  WORKDIR /comfyui
 
-
-# --- FLUX required text encoders + VAE (ae) ---
+  # -------------------------------------------------------------------
+  # 4) Add Flux checkpoint (NF4) into models/checkpoints (so NF4 loader can see it)
+  # -------------------------------------------------------------------
   RUN comfy model download \
-  --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/clip_l.safetensors \
-  --relative-path models/text_encoders \
-  --filename clip_l.safetensors
-
-RUN comfy model download \
-  --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/t5xxl_fp16.safetensors \
-  --relative-path models/text_encoders \
-  --filename t5xxl_fp16.safetensors
-
-RUN comfy model download \
-  --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors \
-  --relative-path models/vae \
-  --filename ae.safetensors
+    --url https://huggingface.co/lllyasviel/flux1-dev-bnb-nf4/resolve/main/flux1-dev-bnb-nf4-v2.safetensors \
+    --relative-path models/checkpoints \
+    --filename flux1-dev-bnb-nf4-v2.safetensors
+  
+  # Optional: also expose it under diffusion_models for other FLUX workflows
+  RUN mkdir -p /comfyui/models/diffusion_models \
+    && ln -sf /comfyui/models/checkpoints/flux1-dev-bnb-nf4-v2.safetensors \
+             /comfyui/models/diffusion_models/flux1-dev-bnb-nf4-v2.safetensors
+  
+  # --- FLUX required text encoders + VAE (ae) ---
+  RUN comfy model download \
+    --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/clip_l.safetensors \
+    --relative-path models/text_encoders \
+    --filename clip_l.safetensors
+  
+  RUN comfy model download \
+    --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/t5xxl_fp16.safetensors \
+    --relative-path models/text_encoders \
+    --filename t5xxl_fp16.safetensors
+  
+  RUN comfy model download \
+    --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors \
+    --relative-path models/vae \
+    --filename ae.safetensors
 # -------------------------------------------------------------------
 # 5) Optional: copy inputs
 # -------------------------------------------------------------------
