@@ -21,7 +21,15 @@ RUN if [ -f /comfyui/custom_nodes/ComfyUI-VideoHelperSuite/requirements.txt ]; t
     fi
 
 # -------------------------------------------------------------------
-# 2) Wan 2.1 models (unchanged)
+# 2) Custom nodes: NF4 loader (CheckpointLoaderNF4) + deps
+# -------------------------------------------------------------------
+RUN cd /comfyui/custom_nodes \
+ && git clone --depth 1 https://github.com/comfyanonymous/ComfyUI_bitsandbytes_NF4.git
+
+RUN pip install --no-cache-dir bitsandbytes
+
+# -------------------------------------------------------------------
+# 3) Wan 2.1 models (unchanged)
 # -------------------------------------------------------------------
 RUN comfy model download \
   --url https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors \
@@ -44,16 +52,19 @@ RUN comfy model download \
   --filename clip_vision_h.safetensors
 
 # -------------------------------------------------------------------
-# 3) Flux checkpoint (NON-NF4) -> put in models/checkpoints
-#    (This is the one your Flux workflow should load via CheckpointLoaderSimple)
+# 4) Flux NF4 checkpoint (this is what your workflow is failing on)
 # -------------------------------------------------------------------
 RUN comfy model download \
-  --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev-fp8.safetensors \
+  --url https://huggingface.co/lllyasviel/flux1-dev-bnb-nf4/resolve/main/flux1-dev-bnb-nf4-v2.safetensors \
+  --relative-path models/checkpoints \
+  --filename flux1-dev-bnb-nf4-v2.safetensors
+
+RUN comfy model download \
+  --url https://huggingface.co/lllyasviel/flux1_dev/resolve/main/flux1-dev-fp8.safetensors \
   --relative-path models/checkpoints \
   --filename flux1-dev-fp8.safetensors
-
 # -------------------------------------------------------------------
-# 4) Flux text encoders + VAE (ae) - needed for Flux workflows
+# 5) Flux text encoders + VAE (ae) - needed for Flux workflows
 # -------------------------------------------------------------------
 RUN comfy model download \
   --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/clip_l.safetensors \
@@ -71,19 +82,15 @@ RUN comfy model download \
   --filename ae.safetensors
 
 # -------------------------------------------------------------------
-# 5) Pixar-ish Flux LoRA (ensure filename is exact in the repo)
+# 6) Pixar-ish Flux LoRA (ensure filename is exact)
 # -------------------------------------------------------------------
 RUN comfy model download \
-  --url https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-Flux-LoRA.safetensors \
+  --url https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-FluxDev-LoRA.safetensors \
   --relative-path models/loras \
-  --filename Canopus-Pixar-3D-Flux-LoRA.safetensors
+  --filename Canopus-Pixar-3D-FluxDev-LoRA.safetensors
 
 # -------------------------------------------------------------------
-# 6) Sanity checks during build (fail fast if missing)
+# 7) Sanity checks during build (fail fast if missing)
 # -------------------------------------------------------------------
-RUN echo "=== checkpoints ===" \
- && ls -lah /comfyui/models/checkpoints \
- && test -f /comfyui/models/checkpoints/flux1-dev-fp8.safetensors \
- && echo "=== loras ===" \
- && ls -lah /comfyui/models/loras \
- && test -f /comfyui/models/loras/Canopus-Pixar-3D-Flux-LoRA.safetensors
+RUN ls -lah /comfyui/models/checkpoints \
+ && test -f /comfyui/models/checkpoints/flux1-dev-bnb-nf4-v2.safetensors
