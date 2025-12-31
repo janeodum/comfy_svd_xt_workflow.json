@@ -21,6 +21,16 @@ RUN if [ -f /comfyui/custom_nodes/ComfyUI-VideoHelperSuite/requirements.txt ]; t
     fi
 
 # -------------------------------------------------------------------
+# 1b) Custom nodes: VideoOutputBridge (maps videos into RunPod artifacts)
+# -------------------------------------------------------------------
+RUN cd /comfyui/custom_nodes \
+  && git clone --depth 1 https://github.com/arthurtravers/ComfyUI-VideoOutputBridge.git
+ 
+RUN if [ -f /comfyui/custom_nodes/ComfyUI-VideoOutputBridge/requirements.txt ]; then \
+       pip install --no-cache-dir -r /comfyui/custom_nodes/ComfyUI-VideoOutputBridge/requirements.txt ; \
+     fi
+     
+# -------------------------------------------------------------------
 # 2) Custom nodes: NF4 loader (CheckpointLoaderNF4) + deps
 # -------------------------------------------------------------------
 RUN cd /comfyui/custom_nodes \
