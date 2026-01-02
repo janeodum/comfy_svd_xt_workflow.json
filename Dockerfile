@@ -39,6 +39,38 @@ RUN cd /comfyui/custom_nodes \
 RUN pip install --no-cache-dir bitsandbytes
 
 # -------------------------------------------------------------------
+# NEW: PuLID for Flux (Identity Preservation)
+# -------------------------------------------------------------------
+RUN cd /comfyui/custom_nodes \
+ && git clone --depth 1 https://github.com/balazik/ComfyUI-PuLID-Flux.git
+
+# Install PuLID dependencies
+RUN pip install --no-cache-dir insightface onnxruntime-gpu facexlib
+
+# Download InsightFace models (required for face detection)
+RUN mkdir -p /comfyui/models/insightface/models/antelopev2 \
+ && cd /comfyui/models/insightface/models/antelopev2 \
+ && curl -L -o 1k3d68.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx" \
+ && curl -L -o 2d106det.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/2d106det.onnx" \
+ && curl -L -o genderage.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/genderage.onnx" \
+ && curl -L -o glintr100.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/glintr100.onnx" \
+ && curl -L -o scrfd_10g_bnkps.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/scrfd_10g_bnkps.onnx"
+
+# Download PuLID model for Flux
+RUN mkdir -p /comfyui/models/pulid \
+ && comfy model download \
+  --url https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors \
+  --relative-path models/pulid \
+  --filename pulid_flux_v0.9.1.safetensors
+
+# Download EVA-CLIP (required by PuLID)
+RUN mkdir -p /comfyui/models/clip \
+ && comfy model download \
+  --url https://huggingface.co/QuanSun/EVA-CLIP/resolve/main/EVA02_CLIP_L_336_psz14_s6B.pt \
+  --relative-path models/clip \
+  --filename EVA02_CLIP_L_336_psz14_s6B.pt
+
+# -------------------------------------------------------------------
 # 3) Wan 2.1 models (unchanged)
 # -------------------------------------------------------------------
 RUN comfy model download \
@@ -62,7 +94,7 @@ RUN comfy model download \
   --filename clip_vision_h.safetensors
 
 # -------------------------------------------------------------------
-# 4) Flux NF4 checkpoint (this is what your workflow is failing on)
+# 4) Flux NF4 checkpoint
 # -------------------------------------------------------------------
 RUN comfy model download \
   --url https://huggingface.co/lllyasviel/flux1-dev-bnb-nf4/resolve/main/flux1-dev-bnb-nf4-v2.safetensors \
@@ -73,18 +105,19 @@ RUN comfy model download \
   --url https://huggingface.co/lllyasviel/flux1_dev/resolve/main/flux1-dev-fp8.safetensors \
   --relative-path models/checkpoints \
   --filename flux1-dev-fp8.safetensors
+
 # -------------------------------------------------------------------
-# 5) Flux text encoders + VAE (ae) - needed for Flux workflows
+# 5) Flux text encoders + VAE (ae)
 # -------------------------------------------------------------------
 RUN comfy model download \
-  --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/clip_l.safetensors \
+  --url https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors \
   --relative-path models/text_encoders \
   --filename clip_l.safetensors
 
 RUN comfy model download \
-  --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/t5xxl_fp16.safetensors \
+  --url https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors \
   --relative-path models/text_encoders \
-  --filename t5xxl_fp16.safetensors
+  --filename t5xxl_fp8_e4m3fn.safetensors
 
 RUN comfy model download \
   --url https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors \
@@ -92,7 +125,7 @@ RUN comfy model download \
   --filename ae.safetensors
 
 # -------------------------------------------------------------------
-# 6) Pixar-ish Flux LoRA (ensure filename is exact)
+# 6) Pixar-ish Flux LoRA
 # -------------------------------------------------------------------
 RUN comfy model download \
   --url https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-FluxDev-LoRA.safetensors \
@@ -100,7 +133,9 @@ RUN comfy model download \
   --filename Canopus-Pixar-3D-FluxDev-LoRA.safetensors
 
 # -------------------------------------------------------------------
-# 7) Sanity checks during build (fail fast if missing)
+# 7) Sanity checks during build
 # -------------------------------------------------------------------
 RUN ls -lah /comfyui/models/checkpoints \
- && test -f /comfyui/models/checkpoints/flux1-dev-bnb-nf4-v2.safetensors
+ && test -f /comfyui/models/checkpoints/flux1-dev-fp8.safetensors \
+ && test -f /comfyui/models/pulid/pulid_flux_v0.9.1.safetensors \
+ && echo "✅ All models downloaded successfully"
