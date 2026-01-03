@@ -65,5 +65,21 @@ download_if_missing \
 download_if_missing \
     "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors" \
     "$MODEL_DIR/pulid/pulid_flux_v0.9.1.safetensors"
+# ... (inside your download_models.sh script)
 
+# PuLID Face Detection Models (AntelopeV2)
+mkdir -p "$MODEL_DIR/insightface/models/antelopev2"
+download_if_missing \
+    "https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx" \
+    "$MODEL_DIR/insightface/models/antelopev2/1k3d68.onnx"
+
+download_if_missing \
+    "https://huggingface.co/MonsterMMORPG/tools/resolve/main/2d106det.onnx" \
+    "$MODEL_DIR/insightface/models/antelopev2/2d106det.onnx"
+
+# Add the EVA-CLIP model required by PuLID
+mkdir -p "$MODEL_DIR/clip"
+download_if_missing \
+    "https://huggingface.co/QuanSun/EVA-CLIP/resolve/main/EVA02_CLIP_L_336_psz14_s6B.pt" \
+    "$MODEL_DIR/clip/EVA02_CLIP_L_336_psz14_s6B.pt"
 echo "✅ All models ready!"

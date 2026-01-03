@@ -45,6 +45,14 @@ RUN mkdir -p /comfyui/models/checkpoints \
 # -------------------------------------------------------------------
 COPY download_models.sh /comfyui/download_models.sh
 RUN chmod +x /comfyui/download_models.sh
+  
+# This tells the RunPod worker to run your script BEFORE starting the ComfyUI handler
+CMD ./download_models.sh && python -u /app/worker.py
+# Ensure input directory exists and create dummy files to satisfy ComfyUI's startup validator
+RUN mkdir -p /comfyui/input && \
+    touch /comfyui/input/PARTNER1_REFERENCE /comfyui/input/PARTNER2_REFERENCE
 
+# Set environment variables for better path resolution
+ENV PYTHONPATH="${PYTHONPATH}:/comfyui"
 # The base image handles the entrypoint, but we can add a pre-start hook
 ENV COMFY_MODEL_DIR=/comfyui/models
