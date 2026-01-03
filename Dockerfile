@@ -44,7 +44,7 @@ RUN mkdir -p \
 # -------------------------------------------------------------------
 # 3) Add runtime model downloader
 # -------------------------------------------------------------------
-COPY docker/entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENV COMFY_MODEL_DIR=/comfyui/models
