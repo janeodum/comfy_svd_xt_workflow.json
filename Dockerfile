@@ -28,7 +28,7 @@ RUN for req in /comfyui/custom_nodes/*/requirements.txt; do \
     done
 
 # -------------------------------------------------------------------
-# 2) Create model directories (models will be mounted or downloaded at runtime)
+# 2) Create model directories
 # -------------------------------------------------------------------
 RUN mkdir -p /comfyui/models/checkpoints \
     /comfyui/models/text_encoders \
@@ -41,18 +41,49 @@ RUN mkdir -p /comfyui/models/checkpoints \
     /comfyui/models/insightface/models/antelopev2
 
 # -------------------------------------------------------------------
-# 3) Startup script to download models if not present
+# 3) DOWNLOAD MODELS AT BUILD TIME
+# This makes the image large (~25GB) but guarantees models are present
 # -------------------------------------------------------------------
-COPY download_models.sh /comfyui/download_models.sh
-RUN chmod +x /comfyui/download_models.sh
-  
-# This tells the RunPod worker to run your script BEFORE starting the ComfyUI handler
-CMD ./download_models.sh && python -u /app/worker.py
-# Ensure input directory exists and create dummy files to satisfy ComfyUI's startup validator
-RUN mkdir -p /comfyui/input && \
-    touch /comfyui/input/PARTNER1_REFERENCE /comfyui/input/PARTNER2_REFERENCE
 
-# Set environment variables for better path resolution
-ENV PYTHONPATH="${PYTHONPATH}:/comfyui"
-# The base image handles the entrypoint, but we can add a pre-start hook
+# Flux checkpoint (~12GB) - This is the main one causing the error
+RUN curl -L --progress-bar -o /comfyui/models/checkpoints/flux1-dev-fp8.safetensors \
+    "https://huggingface.co/lllyasviel/flux1_dev/resolve/main/flux1-dev-fp8.safetensors"
+
+# Flux text encoders
+RUN curl -L --progress-bar -o /comfyui/models/text_encoders/clip_l.safetensors \
+    "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors"
+
+RUN curl -L --progress-bar -o /comfyui/models/text_encoders/t5xxl_fp8_e4m3fn.safetensors \
+    "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors"
+
+# Flux VAE
+RUN curl -L --progress-bar -o /comfyui/models/vae/ae.safetensors \
+    "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors"
+
+# PuLID model - Also causing error
+RUN curl -L --progress-bar -o /comfyui/models/pulid/pulid_flux_v0.9.1.safetensors \
+    "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors"
+
+# Wan 2.1 models for video generation
+RUN curl -L --progress-bar -o /comfyui/models/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+
+RUN curl -L --progress-bar -o /comfyui/models/vae/wan_2.1_vae.safetensors \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
+
+RUN curl -L --progress-bar -o /comfyui/models/diffusion_models/Wan2.1/wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors"
+
+RUN curl -L --progress-bar -o /comfyui/models/clip_vision/clip_vision_h.safetensors \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
+
+# LoRA for Pixar style
+RUN curl -L --progress-bar -o /comfyui/models/loras/Canopus-Pixar-3D-FluxDev-LoRA.safetensors \
+    "https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-FluxDev-LoRA.safetensors"
+
+# Verify models exist
+RUN ls -la /comfyui/models/checkpoints/ && \
+    ls -la /comfyui/models/pulid/ && \
+    echo "✅ Models downloaded successfully"
+
 ENV COMFY_MODEL_DIR=/comfyui/models
