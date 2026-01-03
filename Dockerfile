@@ -23,7 +23,7 @@ RUN for req in /comfyui/custom_nodes/*/requirements.txt; do \
 # 2) Bake ONLY small/medium models into the image
 RUN mkdir -p /comfyui/models/text_encoders /comfyui/models/vae /comfyui/models/loras
 RUN aria2c -x 8 -s 8 -d /comfyui/models/loras "https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-FluxDev-LoRA.safetensors"
-RUN aria2c -x 8 -s 8 -d /comfyui/models/vae "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors"
+# RUN aria2c -x 8 -s 8 -d /comfyui/models/vae "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors"
 RUN aria2c -x 16 -s 16 -d pulid "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors"
 # Add other small encoders here...
 
