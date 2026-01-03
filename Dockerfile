@@ -65,45 +65,8 @@ RUN cd /comfyui/models/insightface/models/antelopev2 && \
 # ============================================================
 
 # Create startup script that symlinks Network Volume models
-RUN echo '#!/bin/bash\n\
-echo "🔍 Setting up models from Network Volume..."\n\
-\n\
-if [ -d "/runpod-volume/models" ]; then\n\
-    echo "✅ Network Volume found at /runpod-volume"\n\
-    \n\
-    # FLUX FP8 checkpoint\n\
-    if [ -f "/runpod-volume/models/checkpoints/flux1-dev-fp8.safetensors" ]; then\n\
-        ln -sf /runpod-volume/models/checkpoints/flux1-dev-fp8.safetensors /comfyui/models/checkpoints/\n\
-        echo "✅ Linked FLUX FP8 model"\n\
-    else\n\
-        echo "⚠️ FLUX model not found on volume"\n\
-    fi\n\
-    \n\
-    # Wan 2.1 I2V\n\
-    if [ -f "/runpod-volume/models/diffusion_models/Wan2.1/wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors" ]; then\n\
-        ln -sf /runpod-volume/models/diffusion_models/Wan2.1/wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors /comfyui/models/diffusion_models/Wan2.1/\n\
-        echo "✅ Linked Wan 2.1 I2V model"\n\
-    else\n\
-        echo "⚠️ Wan 2.1 model not found on volume"\n\
-    fi\n\
-    \n\
-    # VAE (if present)\n\
-    if [ -f "/runpod-volume/models/vae/ae.safetensors" ]; then\n\
-        ln -sf /runpod-volume/models/vae/ae.safetensors /comfyui/models/vae/\n\
-        echo "✅ Linked VAE"\n\
-    fi\n\
-    \n\
-else\n\
-    echo "❌ Network Volume NOT mounted at /runpod-volume"\n\
-    echo "   Large models will need to download at runtime (may timeout!)"\n\
-fi\n\
-\n\
-echo ""\n\
-echo "📁 Model check:"\n\
-ls -lh /comfyui/models/checkpoints/*.safetensors 2>/dev/null || echo "   checkpoints: (empty)"\n\
-ls -lh /comfyui/models/diffusion_models/Wan2.1/*.safetensors 2>/dev/null || echo "   Wan2.1: (empty)"\n\
-ls -lh /comfyui/models/pulid/*.safetensors 2>/dev/null || echo "   pulid: (empty)"\n\
-' > /setup_volume.sh && chmod +x /setup_volume.sh
+COPY setup_volume.sh /setup_volume.sh
+RUN chmod +x /setup_volume.sh
 
 # ============================================================
 # 5) DUMMY FILES FOR VALIDATOR
