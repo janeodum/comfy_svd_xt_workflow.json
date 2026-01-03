@@ -21,19 +21,29 @@ RUN for req in /comfyui/custom_nodes/*/requirements.txt; do \
       [ -f "$req" ] && pip install --no-cache-dir -r "$req" || true; \
     done
 
-# ---- 3) OPTIMIZED MODEL DOWNLOADS (Fixed for Exit Code 24) ----
-# Reduced -x to 8 and handled files in smaller batches
+# ---- 3) SEQUENTIAL MODEL DOWNLOADS (Final Fix for Exit Code 24) ----
+# We create the directories first
 RUN mkdir -p /comfyui/models/checkpoints /comfyui/models/text_encoders /comfyui/models/vae \
     /comfyui/models/diffusion_models/Wan2.1 /comfyui/models/loras /comfyui/models/pulid \
-    /comfyui/models/clip /comfyui/models/insightface/models/antelopev2 \
- && aria2c --console-log-level=error -c -x 8 -s 8 -j 3 -d /comfyui/models/checkpoints "https://huggingface.co/lllyasviel/flux1_dev/resolve/main/flux1-dev-fp8.safetensors" \
- && aria2c --console-log-level=error -c -x 8 -s 8 -j 3 -d /comfyui/models/pulid "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors" \
- && aria2c --console-log-level=error -c -x 4 -s 4 -j 2 -d /comfyui/models/text_encoders "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors" \
- && aria2c --console-log-level=error -c -x 4 -s 4 -j 2 -d /comfyui/models/text_encoders "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors" \
- && aria2c --console-log-level=error -c -x 8 -s 8 -j 3 -d /comfyui/models/vae "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors" \
- && aria2c --console-log-level=error -c -x 8 -s 8 -j 3 -d /comfyui/models/text_encoders "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
- && aria2c --console-log-level=error -c -x 8 -s 8 -j 3 -d /comfyui/models/vae "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors" \
- && aria2c --console-log-level=error -c -x 8 -s 8 -j 3 -d /comfyui/models/diffusion_models/Wan2.1 "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors" \
- && aria2c --console-log-level=error -c -x 8 -s 8 -j 3 -d /comfyui/models/loras "https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-FluxDev-LoRA.safetensors"
- 
+    /comfyui/models/clip /comfyui/models/insightface/models/antelopev2
+
+# Each RUN command below starts a fresh process, resetting file descriptors to 0.
+RUN aria2c --console-log-level=error -c -x 8 -s 8 -d /comfyui/models/checkpoints "https://huggingface.co/lllyasviel/flux1_dev/resolve/main/flux1-dev-fp8.safetensors"
+
+RUN aria2c --console-log-level=error -c -x 8 -s 8 -d /comfyui/models/pulid "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors"
+
+RUN aria2c --console-log-level=error -c -x 8 -s 8 -d /comfyui/models/text_encoders "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors"
+
+RUN aria2c --console-log-level=error -c -x 8 -s 8 -d /comfyui/models/text_encoders "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors"
+
+RUN aria2c --console-log-level=error -c -x 8 -s 8 -d /comfyui/models/vae "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors"
+
+RUN aria2c --console-log-level=error -c -x 8 -s 8 -d /comfyui/models/text_encoders "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+
+RUN aria2c --console-log-level=error -c -x 8 -s 8 -d /comfyui/models/vae "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
+
+RUN aria2c --console-log-level=error -c -x 8 -s 8 -d /comfyui/models/diffusion_models/Wan2.1 "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors"
+
+RUN aria2c --console-log-level=error -c -x 8 -s 8 -d /comfyui/models/loras "https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-FluxDev-LoRA.safetensors"
+
 ENV COMFY_MODEL_DIR=/comfyui/models
