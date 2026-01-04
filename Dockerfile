@@ -20,11 +20,16 @@ RUN mkdir -p /comfyui/custom_nodes && cd /comfyui/custom_nodes \
  && git clone --depth 1 https://github.com/comfyanonymous/ComfyUI_bitsandbytes_NF4.git \
  && git clone --depth 1 https://github.com/balazik/ComfyUI-PuLID-Flux.git
 
-RUN pip install --no-cache-dir bitsandbytes insightface onnxruntime-gpu facexlib
+RUN pip install --no-cache-dir bitsandbytes facexlib
 
+# Install requirements from custom nodes FIRST
 RUN for req in /comfyui/custom_nodes/*/requirements.txt; do \
       [ -f "$req" ] && pip install --no-cache-dir -r "$req" || true; \
     done
+
+# Pin insightface to version with old API (providers in __init__)
+# Install AFTER requirements.txt to ensure we get the correct version
+RUN pip install --no-cache-dir insightface==0.7.3 onnxruntime-gpu
 
 # ============================================================
 # 2) CREATE ALL MODEL DIRECTORIES
