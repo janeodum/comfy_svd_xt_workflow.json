@@ -87,14 +87,20 @@ RUN echo '' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
 # Newer InsightFace versions don't accept 'providers' in __init__
 # We remove the providers argument - InsightFace will use default
 # ============================================================
-RUN python3 -c "\
-import re; \
-path = '/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py'; \
-with open(path, 'r') as f: content = f.read(); \
-patched = re.sub(r',\s*providers=\[[^\]]*\]', '', content); \
-with open(path, 'w') as f: f.write(patched); \
-print('✅ Patched InsightFace providers argument'); \
-"
+RUN python3 - <<'PY'
+import re
+path = "/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py"
+
+with open(path, "r", encoding="utf-8") as f:
+    content = f.read()
+
+patched = re.sub(r",\s*providers=\[[^\]]*\]", "", content)
+
+with open(path, "w", encoding="utf-8") as f:
+    f.write(patched)
+
+print("✅ Patched InsightFace providers argument")
+PY
 
 # InsightFace models for face detection (required by PuLID)
 RUN cd /comfyui/models/insightface/models/antelopev2 && \
