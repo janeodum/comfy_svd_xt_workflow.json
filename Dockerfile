@@ -111,6 +111,10 @@ RUN cd /comfyui/models/insightface/models/antelopev2 && \
     aria2c -x 8 -o scrfd_10g_bnkps.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/scrfd_10g_bnkps.onnx" && \
     ls -la
 
+# Make InsightFace default cache path point to our baked models
+RUN mkdir -p /root && \
+    rm -rf /root/.insightface && \
+    ln -s /comfyui/models/insightface /root/.insightface
 # ============================================================
 # 4) LARGE MODELS → NETWORK VOLUME
 #    Pre-download to volume, then symlink at runtime
