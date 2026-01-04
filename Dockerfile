@@ -47,13 +47,12 @@ RUN mkdir -p /comfyui/models/checkpoints \
 RUN aria2c -x 8 -s 8 -d /comfyui/models/loras \
     "https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-FluxDev-LoRA.safetensors"
 
-# PuLID model (~1GB) - CORRECT PATH
-RUN aria2c -x 16 -s 16 -d /comfyui/models/pulid \
-    "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors"
-
-# Verify PuLID downloaded correctly
-RUN ls -la /comfyui/models/pulid/ && \
-    echo "✅ PuLID model downloaded to /comfyui/models/pulid/"
+# PuLID model (~1GB) - CACHE_BUST_V2
+RUN aria2c -x 16 -s 16 --file-allocation=none -d /comfyui/models/pulid \
+    "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors" && \
+    ls -la /comfyui/models/pulid/ && \
+    test -f /comfyui/models/pulid/pulid_flux_v0.9.1.safetensors && \
+    echo "✅ PuLID model verified at /comfyui/models/pulid/"
 
 # Add extra model paths config (includes pulid folder)
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
@@ -111,7 +110,7 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 # 7) BUILD VERIFICATION
 # ============================================================
 RUN echo "=== FINAL BUILD VERIFICATION ===" && \
-    echo "PuLID model:" && ls -lh /comfyui/models/pulid/*.safetensors && \
-    echo "InsightFace:" && ls /comfyui/models/insightface/models/antelopev2/*.onnx | wc -l && echo "onnx files" && \
-    echo "Registration script:" && cat /comfyui/custom_nodes/ComfyUI-PuLID-Flux/register_pulid.py && \
+    echo "PuLID model:" && (ls -lh /comfyui/models/pulid/ || echo "  (empty)") && \
+    echo "InsightFace models:" && (ls /comfyui/models/insightface/models/antelopev2/ || echo "  (empty)") && \
+    echo "Registration script:" && cat /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py | tail -10 && \
     echo "=== BUILD COMPLETE ==="
