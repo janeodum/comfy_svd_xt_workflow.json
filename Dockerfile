@@ -51,6 +51,13 @@ RUN aria2c -x 8 -s 8 -d /comfyui/models/loras \
 RUN aria2c -x 16 -s 16 -d /comfyui/models/pulid \
     "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors"
 
+# Verify PuLID downloaded correctly
+RUN ls -la /comfyui/models/pulid/ && \
+    echo "✅ PuLID model downloaded to /comfyui/models/pulid/"
+
+# Add extra model paths config (includes pulid folder)
+COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
+
 # InsightFace models for face detection (required by PuLID)
 RUN cd /comfyui/models/insightface/models/antelopev2 && \
     aria2c -x 8 "https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx" && \
