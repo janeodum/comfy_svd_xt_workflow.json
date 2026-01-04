@@ -86,29 +86,28 @@ RUN echo "Downloading InsightFace antelopev2 models..." && \
 # ============================================================
 # 4) CREATE YOUR EXTRA_MODEL_PATHS.YAML
 # ============================================================
-RUN cat > /comfyui/extra_model_paths.yaml << 'EOF'
-# ComfyUI Extra Model Paths Configuration
-# This file tells ComfyUI where to find models
-
-comfyui:
-    base_path: /comfyui/models/
-    checkpoints: checkpoints/
-    diffusion_models: diffusion_models/
-    clip: clip/
-    vae: vae/
-    loras: loras/
-    pulid: pulid/
-    insightface: insightface/
-
-# Network Volume for large models (symlinked at runtime)
-runpod_volume:
-    base_path: /runpod-volume/models/
-    checkpoints: checkpoints/
-    diffusion_models: diffusion_models/
-    clip: clip/
-    vae: vae/
-    loras: loras/
-EOF
+RUN printf '%s\n' \
+"# ComfyUI Extra Model Paths Configuration" \
+"# This file tells ComfyUI where to find models" \
+"" \
+"comfyui:" \
+"  base_path: /comfyui/models/" \
+"  checkpoints: checkpoints/" \
+"  diffusion_models: diffusion_models/" \
+"  clip: clip/" \
+"  vae: vae/" \
+"  loras: loras/" \
+"  pulid: pulid/" \
+"  insightface: insightface/" \
+"" \
+"runpod_volume:" \
+"  base_path: /runpod-volume/models/" \
+"  checkpoints: checkpoints/" \
+"  diffusion_models: diffusion_models/" \
+"  clip: clip/" \
+"  vae: vae/" \
+"  loras: loras/" \
+> /comfyui/extra_model_paths.yaml
 
 # ============================================================
 # 5) PATCH PULID NODE FOR INSIGHTFACE COMPATIBILITY
