@@ -22,14 +22,13 @@ RUN mkdir -p /comfyui/custom_nodes && cd /comfyui/custom_nodes \
 
 RUN pip install --no-cache-dir bitsandbytes facexlib
 
-# Install requirements from custom nodes FIRST
+# Install requirements from custom nodes
 RUN for req in /comfyui/custom_nodes/*/requirements.txt; do \
       [ -f "$req" ] && pip install --no-cache-dir -r "$req" || true; \
     done
 
-# Pin insightface to version with old API (providers in __init__)
-# Install AFTER requirements.txt to ensure we get the correct version
-RUN pip install --no-cache-dir insightface==0.7.3 onnxruntime-gpu
+# Install insightface and onnxruntime (latest versions)
+RUN pip install --no-cache-dir insightface onnxruntime-gpu
 
 # ============================================================
 # 2) CREATE ALL MODEL DIRECTORIES
@@ -83,6 +82,23 @@ RUN echo '' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
     echo 'except Exception as e:' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
     echo '    print(f"PuLID path registration: {e}")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py
 
+# ============================================================
+# FIX: Patch InsightFace API compatibility in PuLID
+# Newer InsightFace versions don't accept 'providers' in __init__
+# We remove the providers argument - InsightFace will use default
+# ============================================================
+RUN python3 -c "
+import re
+path = '/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py'
+with open(path, 'r') as f:
+    content = f.read()
+# Remove providers=[...] argument from FaceAnalysis call
+patched = re.sub(r',\s*providers=\[[^\]]*\]', '', content)
+with open(path, 'w') as f:
+    f.write(patched)
+print('✅ Patched InsightFace providers argument')
+"
+
 # InsightFace models for face detection (required by PuLID)
 RUN cd /comfyui/models/insightface/models/antelopev2 && \
     aria2c -x 8 -o 1k3d68.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx" && \
@@ -123,4 +139,5 @@ RUN echo "=== FINAL BUILD VERIFICATION ===" && \
     echo "PuLID model:" && (ls -lh /comfyui/models/pulid/ || echo "  (empty)") && \
     echo "InsightFace models:" && (ls /comfyui/models/insightface/models/antelopev2/ || echo "  (empty)") && \
     echo "Registration script:" && cat /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py | tail -10 && \
+    echo "InsightFace patch check:" && (grep -q "providers=" /comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py && echo "  ⚠️ providers still present" || echo "  ✅ providers removed") && \
     echo "=== BUILD COMPLETE ==="
