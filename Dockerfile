@@ -116,12 +116,8 @@ RUN python3 -c 'import re; p="/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux
 
 # Patch 2: force INSIGHTFACE_DIR to absolute path (replace line if exists, otherwise append)
 RUN python3 -c 'import re; p="/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py"; s=open(p,"r",encoding="utf-8").read(); \
-if re.search(r"^INSIGHTFACE_DIR\s*=", s, flags=re.M): \
-  s=re.sub(r"^INSIGHTFACE_DIR\s*=.*$", "INSIGHTFACE_DIR = \\"/comfyui/models/insightface\\"", s, flags=re.M); \
-else: \
-  s = "INSIGHTFACE_DIR = \\"/comfyui/models/insightface\\"\\n" + s; \
+s = re.sub(r"^INSIGHTFACE_DIR\s*=.*$", "INSIGHTFACE_DIR = \"/comfyui/models/insightface\"", s, flags=re.M) if re.search(r"^INSIGHTFACE_DIR\s*=", s, flags=re.M) else "INSIGHTFACE_DIR = \"/comfyui/models/insightface\"\n" + s; \
 open(p,"w",encoding="utf-8").write(s); print("✅ Set INSIGHTFACE_DIR to /comfyui/models/insightface")'
-
 # ============================================================
 # 7) Register PuLID model folder
 # ============================================================
