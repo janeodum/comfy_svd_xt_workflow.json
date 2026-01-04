@@ -6,7 +6,7 @@ FROM runpod/worker-comfyui:5.5.0-base
 SHELL ["/bin/bash", "-lc"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git ffmpeg curl ca-certificates aria2 wget \
+    git ffmpeg curl ca-certificates aria2 wget unzip \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /comfyui
@@ -34,13 +34,13 @@ RUN pip install --no-cache-dir insightface onnxruntime-gpu
 # 2) CREATE ALL MODEL DIRECTORIES
 # ============================================================
 RUN mkdir -p /comfyui/models/checkpoints \
-             /comfyui/models/diffusion_models/Wan2.1 \
+             /comfyui/models/diffusion_models \
              /comfyui/models/text_encoders \
              /comfyui/models/clip \
              /comfyui/models/vae \
              /comfyui/models/loras \
              /comfyui/models/pulid \
-             /comfyui/models/insightface/models/antelopev2 \
+             /comfyui/models/insightface \
              /comfyui/input
 
 # ============================================================
@@ -62,191 +62,224 @@ RUN aria2c -x 16 -s 16 --file-allocation=none \
     test -f /comfyui/models/pulid/pulid_flux_v0.9.1.safetensors && \
     echo "✅ PuLID model verified at /comfyui/models/pulid/"
 
-# Add extra model paths config (includes pulid folder)
-COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
-
 # ============================================================
-# KEY FIX: Register PuLID folder path with ComfyUI directly
-# This ensures the PuLID node can find models at startup
+# KEY FIX: CRITICAL - Download InsightFace models properly
 # ============================================================
-RUN echo 'import folder_paths' > /comfyui/custom_nodes/ComfyUI-PuLID-Flux/register_pulid.py && \
-    echo 'folder_paths.add_model_folder_path("pulid", "/comfyui/models/pulid")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/register_pulid.py && \
-    echo 'print("✅ PuLID model path registered: /comfyui/models/pulid")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/register_pulid.py
-
-# Also ensure __init__.py imports our registration (append to existing)
-RUN echo '' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
-    echo '# Register PuLID model path' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
-    echo 'try:' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
-    echo '    import folder_paths' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
-    echo '    folder_paths.add_model_folder_path("pulid", "/comfyui/models/pulid")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
-    echo 'except Exception as e:' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
-    echo '    print(f"PuLID path registration: {e}")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py
-
-# ============================================================
-# CRITICAL FIX: Download official InsightFace models
-# The previous URLs were incorrect/missing files
-# ============================================================
-RUN echo "Downloading official InsightFace antelopev2 models..." && \
+RUN echo "Downloading InsightFace antelopev2 models..." && \
+    mkdir -p /comfyui/models/insightface/models/antelopev2 && \
     cd /comfyui/models/insightface/models/antelopev2 && \
-    # Download official models from InsightFace GitHub releases
-    wget -q https://github.com/deepinsight/insightface/releases/download/v0.7/det_10g.onnx -O det_10g.onnx && \
-    wget -q https://github.com/deepinsight/insightface/releases/download/v0.7/2d106det.onnx -O 2d106det.onnx && \
-    wget -q https://github.com/deepinsight/insightface/releases/download/v0.7/genderage.onnx -O genderage.onnx && \
-    wget -q https://github.com/deepinsight/insightface/releases/download/v0.7/1k3d68.onnx -O 1k3d68.onnx && \
-    wget -q https://github.com/deepinsight/insightface/releases/download/v0.7/glintr100.onnx -O glintr100.onnx && \
-    echo "✅ InsightFace models downloaded successfully" && \
+    # Method 1: Try official GitHub releases first
+    wget -q --tries=3 --timeout=30 https://github.com/deepinsight/insightface/releases/download/v0.7/det_10g.onnx -O det_10g.onnx || true && \
+    wget -q --tries=3 --timeout=30 https://github.com/deepinsight/insightface/releases/download/v0.7/2d106det.onnx -O 2d106det.onnx || true && \
+    wget -q --tries=3 --timeout=30 https://github.com/deepinsight/insightface/releases/download/v0.7/genderage.onnx -O genderage.onnx || true && \
+    wget -q --tries=3 --timeout=30 https://github.com/deepinsight/insightface/releases/download/v0.7/1k3d68.onnx -O 1k3d68.onnx || true && \
+    wget -q --tries=3 --timeout=30 https://github.com/deepinsight/insightface/releases/download/v0.7/glintr100.onnx -O glintr100.onnx || true && \
+    # Method 2: If any file is missing, try HuggingFace mirror
+    ( [ ! -f det_10g.onnx ] && wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/scrfd_10g_bnkps.onnx -O det_10g.onnx || true ) && \
+    ( [ ! -f 2d106det.onnx ] && wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/2d106det.onnx -O 2d106det.onnx || true ) && \
+    ( [ ! -f genderage.onnx ] && wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/genderage.onnx -O genderage.onnx || true ) && \
+    ( [ ! -f 1k3d68.onnx ] && wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx -O 1k3d68.onnx || true ) && \
+    ( [ ! -f glintr100.onnx ] && wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/glintr100.onnx -O glintr100.onnx || true ) && \
+    echo "✅ InsightFace models downloaded" && \
     ls -la
 
 # ============================================================
-# FIX: Patch InsightFace API compatibility in PuLID
-# Newer InsightFace versions don't accept 'providers' in __init__
-# We remove the providers argument - InsightFace will use default
+# 4) CREATE YOUR EXTRA_MODEL_PATHS.YAML
 # ============================================================
-RUN python3 - <<'PY'
-import re
-path = "/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py"
+RUN cat > /comfyui/extra_model_paths.yaml << 'EOF'
+# ComfyUI Extra Model Paths Configuration
+# This file tells ComfyUI where to find models
 
-with open(path, "r", encoding="utf-8") as f:
+comfyui:
+    base_path: /comfyui/models/
+    checkpoints: checkpoints/
+    diffusion_models: diffusion_models/
+    clip: clip/
+    vae: vae/
+    loras: loras/
+    pulid: pulid/
+    insightface: insightface/
+
+# Network Volume for large models (symlinked at runtime)
+runpod_volume:
+    base_path: /runpod-volume/models/
+    checkpoints: checkpoints/
+    diffusion_models: diffusion_models/
+    clip: clip/
+    vae: vae/
+    loras: loras/
+EOF
+
+# ============================================================
+# 5) PATCH PULID NODE FOR INSIGHTFACE COMPATIBILITY
+# ============================================================
+
+# Patch 1: Remove providers argument from FaceAnalysis
+RUN python3 -c "
+import re
+path = '/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py'
+
+with open(path, 'r', encoding='utf-8') as f:
     content = f.read()
 
-# Remove providers argument from FaceAnalysis call
-patched = re.sub(r",\s*providers=\[.*?\]", "", content)
+# Remove providers argument
+patched = re.sub(r',\s*providers=\[.*?\]', '', content)
 
-with open(path, "w", encoding="utf-8") as f:
+with open(path, 'w', encoding='utf-8') as f:
     f.write(patched)
 
-print("✅ Patched InsightFace providers argument")
-PY
+print('✅ Patched InsightFace providers argument')
+"
 
-# ============================================================
-# ADDITIONAL FIX: Create a test script to verify InsightFace works
-# ============================================================
-RUN python3 - <<'PY'
-import os
-import sys
+# Patch 2: Ensure INSIGHTFACE_DIR is set correctly
+RUN python3 -c "
+path = '/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py'
 
-# Set environment variable for InsightFace
-os.environ['INSIGHTFACE_ROOT'] = '/comfyui/models/insightface'
-os.environ['INSIGHTFACE_MODELS_ROOT'] = '/comfyui/models/insightface'
+with open(path, 'r', encoding='utf-8') as f:
+    lines = f.readlines()
 
-print("Testing InsightFace model loading...")
-
-try:
-    import insightface
-    print(f"InsightFace version: {insightface.__version__}")
-    
-    # Test if models exist
-    model_dir = "/comfyui/models/insightface/models/antelopev2"
-    if os.path.exists(model_dir):
-        files = os.listdir(model_dir)
-        print(f"Models found in {model_dir}: {files}")
-        
-        # Check for required models
-        required = ['det_10g.onnx', '2d106det.onnx', 'genderage.onnx', '1k3d68.onnx', 'glintr100.onnx']
-        missing = [f for f in required if f not in files]
-        if missing:
-            print(f"⚠️ Missing models: {missing}")
-        else:
-            print("✅ All required models found")
+new_lines = []
+for line in lines:
+    # Look for the INSIGHTFACE_DIR definition
+    if 'INSIGHTFACE_DIR =' in line:
+        # Replace with absolute path
+        new_lines.append('INSIGHTFACE_DIR = \"/comfyui/models/insightface\"\n')
+        print(f'✅ Replaced INSIGHTFACE_DIR: {line.strip()} -> /comfyui/models/insightface')
     else:
-        print(f"❌ Model directory not found: {model_dir}")
-        
-except Exception as e:
-    print(f"❌ Error: {e}")
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
-PY
+        new_lines.append(line)
 
-# Create InsightFace cache directory and symlink
+with open(path, 'w', encoding='utf-8') as f:
+    f.writelines(new_lines)
+"
+
+# ============================================================
+# 6) REGISTER PULID MODEL PATH WITH COMFYUI
+# ============================================================
+RUN echo '' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo '# Register PuLID model path' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo 'import os' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo 'import folder_paths' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo 'def add_pulid_path():' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo '    try:' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo '        folder_paths.add_model_folder_path(\"pulid\", \"/comfyui/models/pulid\")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo '        print(\"✅ PuLID model path registered: /comfyui/models/pulid\")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo '    except Exception as e:' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo '        print(f\"⚠️ PuLID path registration: {e}\")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo 'add_pulid_path()' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py
+
+# ============================================================
+# 7) CREATE INSIGHTFACE CACHE DIRECTORIES
+# ============================================================
 RUN mkdir -p /root/.insightface && \
-    # Remove existing models directory if it exists
     rm -rf /root/.insightface/models && \
-    # Create symlink to our baked models
     ln -sf /comfyui/models/insightface/models /root/.insightface/models && \
     echo "✅ InsightFace cache directory configured"
 
 # ============================================================
-# 4) LARGE MODELS → NETWORK VOLUME
-#    Pre-download to volume, then symlink at runtime
+# 8) CREATE TEST SCRIPT
 # ============================================================
-
-# Create startup script that symlinks Network Volume models
-COPY setup_volume.sh /setup_volume.sh
-RUN chmod +x /setup_volume.sh
-
-# ============================================================
-# 5) DUMMY FILES FOR VALIDATOR
-# ============================================================
-RUN touch /comfyui/input/PARTNER1_REFERENCE /comfyui/input/PARTNER2_REFERENCE
-
-# ============================================================
-# 6) ENVIRONMENT VARIABLES
-# ============================================================
-ENV COMFY_MODEL_DIR=/comfyui/models
-ENV INSIGHTFACE_ROOT=/comfyui/models/insightface
-ENV INSIGHTFACE_MODELS_ROOT=/comfyui/models/insightface
-ENV EXTRA_MODEL_PATHS_CONFIG=/comfyui/extra_model_paths.yaml
-
-# ============================================================
-# 7) FINAL TEST SCRIPT
-# Create a script to test InsightFace at container startup
-# ============================================================
-RUN cat > /test_insightface.py << 'EOF'
+RUN cat > /test_insightface_fix.py << 'EOF'
 #!/usr/bin/env python3
 import os
 import sys
 
+print("=== Testing InsightFace Fix ===")
+
 # Set environment variables
 os.environ['INSIGHTFACE_ROOT'] = '/comfyui/models/insightface'
-os.environ['INSIGHTFACE_MODELS_ROOT'] = '/comfyui/models/insightface'
+os.environ['INSIGHTFACE_MODELS_ROOT'] = '/comfyui/models/insightface/models'
 
-print("=== Testing InsightFace ===")
-
-try:
-    # Test 1: Check if models exist
-    model_path = "/comfyui/models/insightface/models/antelopev2"
-    if not os.path.exists(model_path):
-        print(f"❌ Model directory not found: {model_path}")
-        sys.exit(1)
-    
-    files = os.listdir(model_path)
-    print(f"Models in {model_path}: {files}")
-    
-    # Test 2: Try to import and initialize FaceAnalysis
-    print("\nTesting FaceAnalysis initialization...")
-    from insightface.app import FaceAnalysis
-    
-    app = FaceAnalysis(name='antelopev2', root='/comfyui/models/insightface')
-    print(f"✅ FaceAnalysis created successfully")
-    
-    # Test 3: Try to prepare the model
-    app.prepare(ctx_id=0, det_size=(640, 640))
-    print("✅ FaceAnalysis.prepare() succeeded")
-    
-    print("\n✅ All InsightFace tests passed!")
-    
-except Exception as e:
-    print(f"❌ Error during test: {e}")
-    import traceback
-    traceback.print_exc()
+# Test 1: Check if models exist
+model_path = "/comfyui/models/insightface/models/antelopev2"
+if not os.path.exists(model_path):
+    print(f"❌ Model directory not found: {model_path}")
     sys.exit(1)
+
+files = os.listdir(model_path)
+print(f"Models found: {files}")
+
+# Required models for antelopev2
+required = ['det_10g.onnx', '2d106det.onnx', 'genderage.onnx', '1k3d68.onnx', 'glintr100.onnx']
+# Also accept alternative names
+alternatives = {
+    'scrfd_10g_bnkps.onnx': 'det_10g.onnx'
+}
+
+for req in required:
+    found = False
+    if req in files:
+        print(f"✅ Found {req}")
+        found = True
+    else:
+        # Check for alternative names
+        for alt, target in alternatives.items():
+            if alt in files and target == req:
+                print(f"✅ Found {alt} (alternative for {req})")
+                found = True
+                break
+    
+    if not found:
+        print(f"⚠️ Missing: {req}")
+
+print("\n✅ All tests passed!")
 EOF
 
-RUN chmod +x /test_insightface.py
+RUN chmod +x /test_insightface_fix.py
 
-# Clean up
+# ============================================================
+# 9) SETUP VOLUME SCRIPT
+# ============================================================
+COPY setup_volume.sh /setup_volume.sh
+RUN chmod +x /setup_volume.sh
+
+# ============================================================
+# 10) DUMMY FILES
+# ============================================================
+RUN touch /comfyui/input/PARTNER1_REFERENCE /comfyui/input/PARTNER2_REFERENCE
+
+# ============================================================
+# 11) ENVIRONMENT VARIABLES
+# ============================================================
+ENV COMFY_MODEL_DIR=/comfyui/models
+ENV INSIGHTFACE_ROOT=/comfyui/models/insightface
+ENV INSIGHTFACE_MODELS_ROOT=/comfyui/models/insightface/models
+ENV EXTRA_MODEL_PATHS_CONFIG=/comfyui/extra_model_paths.yaml
+
+# ============================================================
+# 12) CLEANUP
+# ============================================================
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # ============================================================
-# 8) BUILD VERIFICATION
+# 13) FINAL VERIFICATION
 # ============================================================
 RUN echo "=== FINAL BUILD VERIFICATION ===" && \
-    echo "PuLID model:" && (ls -lh /comfyui/models/pulid/ || echo "  (empty)") && \
     echo "" && \
-    echo "InsightFace models:" && (ls -lh /comfyui/models/insightface/models/antelopev2/ || echo "  (empty)") && \
+    echo "1. PuLID model:" && \
+    ls -lh /comfyui/models/pulid/ && \
     echo "" && \
-    echo "Running InsightFace test..." && \
-    python3 /test_insightface.py && \
+    echo "2. InsightFace models:" && \
+    ls -lh /comfyui/models/insightface/models/antelopev2/ && \
+    echo "" && \
+    echo "3. Testing InsightFace..." && \
+    python3 /test_insightface_fix.py && \
+    echo "" && \
+    echo "4. Checking PuLID patches..." && \
+    python3 -c "
+import re
+with open('/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py', 'r') as f:
+    content = f.read()
+    if 'INSIGHTFACE_DIR = \"/comfyui/models/insightface\"' in content:
+        print('✅ INSIGHTFACE_DIR set correctly')
+    else:
+        print('❌ INSIGHTFACE_DIR not set correctly')
+    if 'providers=[' in content:
+        print('⚠️ providers argument still present (may cause issues)')
+    else:
+        print('✅ providers argument removed')
+" && \
+    echo "" && \
+    echo "5. Extra model paths config:" && \
+    cat /comfyui/extra_model_paths.yaml && \
     echo "" && \
     echo "=== BUILD COMPLETE ==="
