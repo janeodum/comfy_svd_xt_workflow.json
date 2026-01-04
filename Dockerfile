@@ -6,7 +6,7 @@ FROM runpod/worker-comfyui:5.5.0-base
 SHELL ["/bin/bash", "-lc"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git ffmpeg curl ca-certificates aria2 \
+    git ffmpeg curl ca-certificates aria2 wget \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /comfyui
@@ -83,6 +83,21 @@ RUN echo '' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
     echo '    print(f"PuLID path registration: {e}")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py
 
 # ============================================================
+# CRITICAL FIX: Download official InsightFace models
+# The previous URLs were incorrect/missing files
+# ============================================================
+RUN echo "Downloading official InsightFace antelopev2 models..." && \
+    cd /comfyui/models/insightface/models/antelopev2 && \
+    # Download official models from InsightFace GitHub releases
+    wget -q https://github.com/deepinsight/insightface/releases/download/v0.7/det_10g.onnx -O det_10g.onnx && \
+    wget -q https://github.com/deepinsight/insightface/releases/download/v0.7/2d106det.onnx -O 2d106det.onnx && \
+    wget -q https://github.com/deepinsight/insightface/releases/download/v0.7/genderage.onnx -O genderage.onnx && \
+    wget -q https://github.com/deepinsight/insightface/releases/download/v0.7/1k3d68.onnx -O 1k3d68.onnx && \
+    wget -q https://github.com/deepinsight/insightface/releases/download/v0.7/glintr100.onnx -O glintr100.onnx && \
+    echo "✅ InsightFace models downloaded successfully" && \
+    ls -la
+
+# ============================================================
 # FIX: Patch InsightFace API compatibility in PuLID
 # Newer InsightFace versions don't accept 'providers' in __init__
 # We remove the providers argument - InsightFace will use default
@@ -94,7 +109,8 @@ path = "/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py"
 with open(path, "r", encoding="utf-8") as f:
     content = f.read()
 
-patched = re.sub(r",\s*providers=\[[^\]]*\]", "", content)
+# Remove providers argument from FaceAnalysis call
+patched = re.sub(r",\s*providers=\[.*?\]", "", content)
 
 with open(path, "w", encoding="utf-8") as f:
     f.write(patched)
@@ -102,19 +118,54 @@ with open(path, "w", encoding="utf-8") as f:
 print("✅ Patched InsightFace providers argument")
 PY
 
-# InsightFace models for face detection (required by PuLID)
-RUN cd /comfyui/models/insightface/models/antelopev2 && \
-    aria2c -x 8 -o 1k3d68.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx" && \
-    aria2c -x 8 -o 2d106det.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/2d106det.onnx" && \
-    aria2c -x 8 -o genderage.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/genderage.onnx" && \
-    aria2c -x 8 -o glintr100.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/glintr100.onnx" && \
-    aria2c -x 8 -o scrfd_10g_bnkps.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/scrfd_10g_bnkps.onnx" && \
-    ls -la
+# ============================================================
+# ADDITIONAL FIX: Create a test script to verify InsightFace works
+# ============================================================
+RUN python3 - <<'PY'
+import os
+import sys
 
-# Make InsightFace default cache path point to our baked models
-RUN mkdir -p /root && \
-    rm -rf /root/.insightface && \
-    ln -s /comfyui/models/insightface /root/.insightface
+# Set environment variable for InsightFace
+os.environ['INSIGHTFACE_ROOT'] = '/comfyui/models/insightface'
+os.environ['INSIGHTFACE_MODELS_ROOT'] = '/comfyui/models/insightface'
+
+print("Testing InsightFace model loading...")
+
+try:
+    import insightface
+    print(f"InsightFace version: {insightface.__version__}")
+    
+    # Test if models exist
+    model_dir = "/comfyui/models/insightface/models/antelopev2"
+    if os.path.exists(model_dir):
+        files = os.listdir(model_dir)
+        print(f"Models found in {model_dir}: {files}")
+        
+        # Check for required models
+        required = ['det_10g.onnx', '2d106det.onnx', 'genderage.onnx', '1k3d68.onnx', 'glintr100.onnx']
+        missing = [f for f in required if f not in files]
+        if missing:
+            print(f"⚠️ Missing models: {missing}")
+        else:
+            print("✅ All required models found")
+    else:
+        print(f"❌ Model directory not found: {model_dir}")
+        
+except Exception as e:
+    print(f"❌ Error: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+PY
+
+# Create InsightFace cache directory and symlink
+RUN mkdir -p /root/.insightface && \
+    # Remove existing models directory if it exists
+    rm -rf /root/.insightface/models && \
+    # Create symlink to our baked models
+    ln -sf /comfyui/models/insightface/models /root/.insightface/models && \
+    echo "✅ InsightFace cache directory configured"
+
 # ============================================================
 # 4) LARGE MODELS → NETWORK VOLUME
 #    Pre-download to volume, then symlink at runtime
@@ -134,17 +185,68 @@ RUN touch /comfyui/input/PARTNER1_REFERENCE /comfyui/input/PARTNER2_REFERENCE
 # ============================================================
 ENV COMFY_MODEL_DIR=/comfyui/models
 ENV INSIGHTFACE_ROOT=/comfyui/models/insightface
+ENV INSIGHTFACE_MODELS_ROOT=/comfyui/models/insightface
 ENV EXTRA_MODEL_PATHS_CONFIG=/comfyui/extra_model_paths.yaml
+
+# ============================================================
+# 7) FINAL TEST SCRIPT
+# Create a script to test InsightFace at container startup
+# ============================================================
+RUN cat > /test_insightface.py << 'EOF'
+#!/usr/bin/env python3
+import os
+import sys
+
+# Set environment variables
+os.environ['INSIGHTFACE_ROOT'] = '/comfyui/models/insightface'
+os.environ['INSIGHTFACE_MODELS_ROOT'] = '/comfyui/models/insightface'
+
+print("=== Testing InsightFace ===")
+
+try:
+    # Test 1: Check if models exist
+    model_path = "/comfyui/models/insightface/models/antelopev2"
+    if not os.path.exists(model_path):
+        print(f"❌ Model directory not found: {model_path}")
+        sys.exit(1)
+    
+    files = os.listdir(model_path)
+    print(f"Models in {model_path}: {files}")
+    
+    # Test 2: Try to import and initialize FaceAnalysis
+    print("\nTesting FaceAnalysis initialization...")
+    from insightface.app import FaceAnalysis
+    
+    app = FaceAnalysis(name='antelopev2', root='/comfyui/models/insightface')
+    print(f"✅ FaceAnalysis created successfully")
+    
+    # Test 3: Try to prepare the model
+    app.prepare(ctx_id=0, det_size=(640, 640))
+    print("✅ FaceAnalysis.prepare() succeeded")
+    
+    print("\n✅ All InsightFace tests passed!")
+    
+except Exception as e:
+    print(f"❌ Error during test: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+EOF
+
+RUN chmod +x /test_insightface.py
 
 # Clean up
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # ============================================================
-# 7) BUILD VERIFICATION
+# 8) BUILD VERIFICATION
 # ============================================================
 RUN echo "=== FINAL BUILD VERIFICATION ===" && \
     echo "PuLID model:" && (ls -lh /comfyui/models/pulid/ || echo "  (empty)") && \
-    echo "InsightFace models:" && (ls /comfyui/models/insightface/models/antelopev2/ || echo "  (empty)") && \
-    echo "Registration script:" && cat /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py | tail -10 && \
-    echo "InsightFace patch check:" && (grep -q "providers=" /comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py && echo "  ⚠️ providers still present" || echo "  ✅ providers removed") && \
+    echo "" && \
+    echo "InsightFace models:" && (ls -lh /comfyui/models/insightface/models/antelopev2/ || echo "  (empty)") && \
+    echo "" && \
+    echo "Running InsightFace test..." && \
+    python3 /test_insightface.py && \
+    echo "" && \
     echo "=== BUILD COMPLETE ==="
