@@ -58,6 +58,23 @@ RUN ls -la /comfyui/models/pulid/ && \
 # Add extra model paths config (includes pulid folder)
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 
+# ============================================================
+# KEY FIX: Register PuLID folder path with ComfyUI directly
+# This ensures the PuLID node can find models at startup
+# ============================================================
+RUN echo 'import folder_paths' > /comfyui/custom_nodes/ComfyUI-PuLID-Flux/register_pulid.py && \
+    echo 'folder_paths.add_model_folder_path("pulid", "/comfyui/models/pulid")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/register_pulid.py && \
+    echo 'print("✅ PuLID model path registered: /comfyui/models/pulid")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/register_pulid.py
+
+# Also ensure __init__.py imports our registration (append to existing)
+RUN echo '' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo '# Register PuLID model path' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo 'try:' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo '    import folder_paths' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo '    folder_paths.add_model_folder_path("pulid", "/comfyui/models/pulid")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo 'except Exception as e:' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
+    echo '    print(f"PuLID path registration: {e}")' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py
+
 # InsightFace models for face detection (required by PuLID)
 RUN cd /comfyui/models/insightface/models/antelopev2 && \
     aria2c -x 8 "https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx" && \
@@ -85,6 +102,16 @@ RUN touch /comfyui/input/PARTNER1_REFERENCE /comfyui/input/PARTNER2_REFERENCE
 # ============================================================
 ENV COMFY_MODEL_DIR=/comfyui/models
 ENV INSIGHTFACE_ROOT=/comfyui/models/insightface
+ENV EXTRA_MODEL_PATHS_CONFIG=/comfyui/extra_model_paths.yaml
 
 # Clean up
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# ============================================================
+# 7) BUILD VERIFICATION
+# ============================================================
+RUN echo "=== FINAL BUILD VERIFICATION ===" && \
+    echo "PuLID model:" && ls -lh /comfyui/models/pulid/*.safetensors && \
+    echo "InsightFace:" && ls /comfyui/models/insightface/models/antelopev2/*.onnx | wc -l && echo "onnx files" && \
+    echo "Registration script:" && cat /comfyui/custom_nodes/ComfyUI-PuLID-Flux/register_pulid.py && \
+    echo "=== BUILD COMPLETE ==="
