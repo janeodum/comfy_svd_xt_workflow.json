@@ -68,56 +68,78 @@ RUN aria2c -x 16 -s 16 --file-allocation=none \
 RUN echo "Downloading InsightFace antelopev2 models..." && \
     mkdir -p /comfyui/models/insightface/models/antelopev2 && \
     cd /comfyui/models/insightface/models/antelopev2 && \
-    wget -q --tries=3 --timeout=30 https://github.com/deepinsight/insightface/releases/download/v0.7/det_10g.onnx -O det_10g.onnx || true && \
-    wget -q --tries=3 --timeout=30 https://github.com/deepinsight/insightface/releases/download/v0.7/2d106det.onnx -O 2d106det.onnx || true && \
-    wget -q --tries=3 --timeout=30 https://github.com/deepinsight/insightface/releases/download/v0.7/genderage.onnx -O genderage.onnx || true && \
-    wget -q --tries=3 --timeout=30 https://github.com/deepinsight/insightface/releases/download/v0.7/1k3d68.onnx -O 1k3d68.onnx || true && \
-    wget -q --tries=3 --timeout=30 https://github.com/deepinsight/insightface/releases/download/v0.7/glintr100.onnx -O glintr100.onnx || true && \
-    ( [ ! -f det_10g.onnx ] && wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/scrfd_10g_bnkps.onnx -O det_10g.onnx || true ) && \
-    ( [ ! -f 2d106det.onnx ] && wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/2d106det.onnx -O 2d106det.onnx || true ) && \
-    ( [ ! -f genderage.onnx ] && wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/genderage.onnx -O genderage.onnx || true ) && \
-    ( [ ! -f 1k3d68.onnx ] && wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx -O 1k3d68.onnx || true ) && \
-    ( [ ! -f glintr100.onnx ] && wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/glintr100.onnx -O glintr100.onnx || true ) && \
+    # Download all models from HuggingFace
+    wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx && \
+    wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/2d106det.onnx && \
+    wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/genderage.onnx && \
+    wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/glintr100.onnx && \
+    wget -q https://huggingface.co/MonsterMMORPG/tools/resolve/main/scrfd_10g_bnkps.onnx && \
     echo "✅ InsightFace models downloaded" && \
     ls -la
 
 # ============================================================
-# 5) extra_model_paths.yaml (NO heredoc)
+# 5) extra_model_paths.yaml
 # ============================================================
-RUN printf '%s\n' \
-"# ComfyUI Extra Model Paths Configuration" \
-"# This file tells ComfyUI where to find models" \
-"" \
-"comfyui:" \
-"  base_path: /comfyui/models/" \
-"  checkpoints: checkpoints/" \
-"  diffusion_models: diffusion_models/" \
-"  clip: clip/" \
-"  vae: vae/" \
-"  loras: loras/" \
-"  pulid: pulid/" \
-"  insightface: insightface/" \
-"" \
-"runpod_volume:" \
-"  base_path: /runpod-volume/models/" \
-"  checkpoints: checkpoints/" \
-"  diffusion_models: diffusion_models/" \
-"  clip: clip/" \
-"  vae: vae/" \
-"  loras: loras/" \
-> /comfyui/extra_model_paths.yaml
+RUN cat > /comfyui/extra_model_paths.yaml << 'EOF'
+# ComfyUI Extra Model Paths Configuration
+# This file tells ComfyUI where to find models
+
+comfyui:
+    base_path: /comfyui/models/
+    checkpoints: checkpoints/
+    diffusion_models: diffusion_models/
+    clip: clip/
+    vae: vae/
+    loras: loras/
+    pulid: pulid/
+    insightface: insightface/
+
+# Network Volume for large models (symlinked at runtime)
+runpod_volume:
+    base_path: /runpod-volume/models/
+    checkpoints: checkpoints/
+    diffusion_models: diffusion_models/
+    clip: clip/
+    vae: vae/
+    loras: loras/
+EOF
 
 # ============================================================
-# 6) Patch PuLID node (NO multiline python)
+# 6) Patch PuLID node
 # ============================================================
 
-# Patch 1: remove providers=[...] anywhere
-RUN python3 -c 'import re; p="/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py"; s=open(p,"r",encoding="utf-8").read(); s=re.sub(r",\s*providers=\[.*?\]","",s,flags=re.S); open(p,"w",encoding="utf-8").write(s); print("✅ Removed providers=[...]")'
+# Create a Python script to patch the pulidflux.py file
+RUN cat > /tmp/patch_pulid.py << 'EOF'
+import re
+import sys
 
-# Patch 2: force INSIGHTFACE_DIR to absolute path (replace line if exists, otherwise append)
-RUN python3 -c 'import re; p="/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py"; s=open(p,"r",encoding="utf-8").read(); \
-s = re.sub(r"^INSIGHTFACE_DIR\s*=.*$", "INSIGHTFACE_DIR = \"/comfyui/models/insightface\"", s, flags=re.M) if re.search(r"^INSIGHTFACE_DIR\s*=", s, flags=re.M) else "INSIGHTFACE_DIR = \"/comfyui/models/insightface\"\n" + s; \
-open(p,"w",encoding="utf-8").write(s); print("✅ Set INSIGHTFACE_DIR to /comfyui/models/insightface")'
+path = "/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py"
+
+with open(path, "r", encoding="utf-8") as f:
+    content = f.read()
+
+# Remove providers argument
+content = re.sub(r",\s*providers=\[.*?\]", "", content, flags=re.DOTALL)
+
+# Force INSIGHTFACE_DIR to absolute path
+if "INSIGHTFACE_DIR =" in content:
+    content = re.sub(r'INSIGHTFACE_DIR\s*=\s*.*', 'INSIGHTFACE_DIR = "/comfyui/models/insightface"', content)
+else:
+    # Add it at the top if not found
+    lines = content.split('\n')
+    lines.insert(0, 'INSIGHTFACE_DIR = "/comfyui/models/insightface"')
+    content = '\n'.join(lines)
+
+with open(path, "w", encoding="utf-8") as f:
+    f.write(content)
+
+print("✅ Patched pulidflux.py")
+print("  - Removed providers argument")
+print("  - Set INSIGHTFACE_DIR to /comfyui/models/insightface")
+EOF
+
+RUN python3 /tmp/patch_pulid.py && rm /tmp/patch_pulid.py
+
 # ============================================================
 # 7) Register PuLID model folder
 # ============================================================
@@ -139,26 +161,40 @@ RUN mkdir -p /root/.insightface && \
     echo "✅ InsightFace cache directory configured"
 
 # ============================================================
-# 9) Test script (NO heredoc)
+# 9) Test script
 # ============================================================
-RUN printf '%s\n' \
-"#!/usr/bin/env python3" \
-"import os, sys" \
-"print('=== Testing InsightFace Fix ===')" \
-"os.environ['INSIGHTFACE_ROOT'] = '/comfyui/models/insightface'" \
-"os.environ['INSIGHTFACE_MODELS_ROOT'] = '/comfyui/models/insightface/models'" \
-"model_path = '/comfyui/models/insightface/models/antelopev2'" \
-"if not os.path.exists(model_path):" \
-"    print(f'❌ Model directory not found: {model_path}'); sys.exit(1)" \
-"files = os.listdir(model_path)" \
-"print(f'Models found: {files}')" \
-"required = ['det_10g.onnx','2d106det.onnx','genderage.onnx','1k3d68.onnx','glintr100.onnx']" \
-"alts = {'scrfd_10g_bnkps.onnx':'det_10g.onnx'}" \
-"for r in required:" \
-"    ok = (r in files) or any((a in files and alts[a]==r) for a in alts)" \
-"    print(('✅ Found ' + r) if ok else ('⚠️ Missing: ' + r))" \
-"print('✅ Test complete')" \
-> /test_insightface_fix.py && chmod +x /test_insightface_fix.py
+RUN cat > /test_insightface.py << 'EOF'
+#!/usr/bin/env python3
+import os
+import sys
+
+print("=== Testing InsightFace ===")
+
+# Set environment variables
+os.environ['INSIGHTFACE_ROOT'] = '/comfyui/models/insightface'
+os.environ['INSIGHTFACE_MODELS_ROOT'] = '/comfyui/models/insightface/models'
+
+# Test 1: Check if models exist
+model_path = "/comfyui/models/insightface/models/antelopev2"
+if not os.path.exists(model_path):
+    print(f"❌ Model directory not found: {model_path}")
+    sys.exit(1)
+
+files = os.listdir(model_path)
+print(f"Models found: {files}")
+
+# Check for required files
+required_files = ['1k3d68.onnx', '2d106det.onnx', 'genderage.onnx', 'glintr100.onnx', 'scrfd_10g_bnkps.onnx']
+for req in required_files:
+    if req in files:
+        print(f"✅ Found {req}")
+    else:
+        print(f"❌ Missing: {req}")
+
+print("\n✅ All models downloaded successfully!")
+EOF
+
+RUN chmod +x /test_insightface.py
 
 # ============================================================
 # 10) Volume setup
@@ -183,19 +219,24 @@ ENV EXTRA_MODEL_PATHS_CONFIG=/comfyui/extra_model_paths.yaml
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # ============================================================
-# 13) Final verification (NO multiline python)
+# 13) Final verification - SIMPLIFIED
 # ============================================================
-RUN echo "=== FINAL BUILD VERIFICATION ===" && \
-    echo "" && \
-    echo "1) PuLID model:" && ls -lh /comfyui/models/pulid/ && \
-    echo "" && \
-    echo "2) InsightFace models:" && ls -lh /comfyui/models/insightface/models/antelopev2/ && \
-    echo "" && \
-    echo "3) Running test:" && python3 /test_insightface_fix.py && \
-    echo "" && \
-    echo "4) Patch check:" && \
-    python3 -c 's=open("/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py","r").read(); print("INSIGHTFACE_DIR ok" if "INSIGHTFACE_DIR = \\"/comfyui/models/insightface\\"" in s else "INSIGHTFACE_DIR missing"); print("providers removed" if "providers=[" not in s else "providers STILL present")' && \
-    echo "" && \
-    echo "5) extra_model_paths.yaml:" && cat /comfyui/extra_model_paths.yaml && \
-    echo "" && \
-    echo "=== BUILD COMPLETE ==="
+RUN echo "=== FINAL BUILD VERIFICATION ==="
+RUN echo "1) PuLID model:" && ls -lh /comfyui/models/pulid/
+RUN echo "2) InsightFace models:" && ls -lh /comfyui/models/insightface/models/antelopev2/
+RUN echo "3) Running InsightFace test:" && python3 /test_insightface.py
+RUN echo "4) Patch verification:" && python3 -c "
+import re
+with open('/comfyui/custom_nodes/ComfyUI-PuLID-Flux/pulidflux.py', 'r') as f:
+    content = f.read()
+    if 'INSIGHTFACE_DIR = \"/comfyui/models/insightface\"' in content:
+        print('✅ INSIGHTFACE_DIR set correctly')
+    else:
+        print('❌ INSIGHTFACE_DIR not set correctly')
+    if 'providers=[' not in content:
+        print('✅ providers argument removed')
+    else:
+        print('❌ providers argument still present')
+"
+RUN echo "5) extra_model_paths.yaml:" && cat /comfyui/extra_model_paths.yaml
+RUN echo "=== BUILD COMPLETE ==="
