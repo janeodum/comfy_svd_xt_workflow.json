@@ -44,11 +44,15 @@ RUN mkdir -p /comfyui/models/checkpoints \
 # ============================================================
 
 # LoRA - Pixar 3D style (~200MB)
-RUN aria2c -x 8 -s 8 -d /comfyui/models/loras \
+RUN aria2c -x 8 -s 8 \
+    -d /comfyui/models/loras \
+    -o Canopus-Pixar-3D-FluxDev-LoRA.safetensors \
     "https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-FluxDev-LoRA.safetensors"
 
-# PuLID model (~1GB) - CACHE_BUST_V2
-RUN aria2c -x 16 -s 16 --file-allocation=none -d /comfyui/models/pulid \
+# PuLID model (~1GB) - CACHE_BUST_V3 - explicit filename
+RUN aria2c -x 16 -s 16 --file-allocation=none \
+    -d /comfyui/models/pulid \
+    -o pulid_flux_v0.9.1.safetensors \
     "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors" && \
     ls -la /comfyui/models/pulid/ && \
     test -f /comfyui/models/pulid/pulid_flux_v0.9.1.safetensors && \
@@ -76,11 +80,12 @@ RUN echo '' >> /comfyui/custom_nodes/ComfyUI-PuLID-Flux/__init__.py && \
 
 # InsightFace models for face detection (required by PuLID)
 RUN cd /comfyui/models/insightface/models/antelopev2 && \
-    aria2c -x 8 "https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx" && \
-    aria2c -x 8 "https://huggingface.co/MonsterMMORPG/tools/resolve/main/2d106det.onnx" && \
-    aria2c -x 8 "https://huggingface.co/MonsterMMORPG/tools/resolve/main/genderage.onnx" && \
-    aria2c -x 8 "https://huggingface.co/MonsterMMORPG/tools/resolve/main/glintr100.onnx" && \
-    aria2c -x 8 "https://huggingface.co/MonsterMMORPG/tools/resolve/main/scrfd_10g_bnkps.onnx"
+    aria2c -x 8 -o 1k3d68.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/1k3d68.onnx" && \
+    aria2c -x 8 -o 2d106det.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/2d106det.onnx" && \
+    aria2c -x 8 -o genderage.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/genderage.onnx" && \
+    aria2c -x 8 -o glintr100.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/glintr100.onnx" && \
+    aria2c -x 8 -o scrfd_10g_bnkps.onnx "https://huggingface.co/MonsterMMORPG/tools/resolve/main/scrfd_10g_bnkps.onnx" && \
+    ls -la
 
 # ============================================================
 # 4) LARGE MODELS → NETWORK VOLUME
