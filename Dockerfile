@@ -82,7 +82,7 @@ RUN wget --no-verbose \
     "https://hf-mirror.com/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
 
 
-# LoRA - Pixar 3D style (required by workflow)
+# LoRA - Pixar 3D style (required by workflow
 RUN wget --no-verbose \
     -O /comfyui/models/loras/Canopus-Pixar-3D-FluxDev-LoRA.safetensors \
     "https://huggingface.co/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA/resolve/main/Canopus-Pixar-3D-FluxDev-LoRA.safetensors"
