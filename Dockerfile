@@ -19,52 +19,44 @@ RUN mkdir -p /comfyui/custom_nodes && cd /comfyui/custom_nodes \
  && git clone https://github.com/arthurtravers/ComfyUI-VideoOutputBridge.git \
  && git clone https://github.com/comfyanonymous/ComfyUI_bitsandbytes_NF4.git \
  && git clone https://github.com/XLabs-AI/x-flux-comfyui.git \
- && cd x-flux-comfyui \
- && pip install -r requirements.txt
-
-# basic deps some nodes need
-RUN pip install --no-cache-dir bitsandbytes opencv-python-headless
-
-# Install requirements from custom nodes (best-effort)
-RUN for req in /comfyui/custom_nodes/*/requirements.txt; do \
-      [ -f "$req" ] && pip install --no-cache-dir -r "$req" || true; \
-    done
+ && pip install --no-cache-dir bitsandbytes opencv-python-headless \
+ && pip install --no-cache-dir -r x-flux-comfyui/requirements.txt
 
 # ============================================================
 # FIX: Flux attn_mask kwarg mismatch
 # DoubleStreamBlock.forward() and SingleStreamBlock.forward() don't accept attn_mask
 # Add **kwargs to accept and discard extra arguments
 # ============================================================
-RUN python3 - <<'PY'
-from pathlib import Path
+# RUN python3 - <<'PY'
+# from pathlib import Path
 
-p = Path("/comfyui/comfy/ldm/flux/model.py")
-s = p.read_text(encoding="utf-8")
-original = s
+# p = Path("/comfyui/comfy/ldm/flux/model.py")
+# s = p.read_text(encoding="utf-8")
+# original = s
 
-# Fix DoubleStreamBlock.forward() - add **kwargs before the return type hint
-s = s.replace(
-    "def forward(self, img: Tensor, txt: Tensor, vec: Tensor, pe: Tensor) -> tuple[Tensor, Tensor]:",
-    "def forward(self, img: Tensor, txt: Tensor, vec: Tensor, pe: Tensor, **kwargs) -> tuple[Tensor, Tensor]:"
-)
+# # Fix DoubleStreamBlock.forward() - add **kwargs before the return type hint
+# s = s.replace(
+#     "def forward(self, img: Tensor, txt: Tensor, vec: Tensor, pe: Tensor) -> tuple[Tensor, Tensor]:",
+#     "def forward(self, img: Tensor, txt: Tensor, vec: Tensor, pe: Tensor, **kwargs) -> tuple[Tensor, Tensor]:"
+# )
 
-# Fix SingleStreamBlock.forward() - add **kwargs before the return type hint
-s = s.replace(
-    "def forward(self, x: Tensor, vec: Tensor, pe: Tensor) -> Tensor:",
-    "def forward(self, x: Tensor, vec: Tensor, pe: Tensor, **kwargs) -> Tensor:"
-)
+# # Fix SingleStreamBlock.forward() - add **kwargs before the return type hint
+# s = s.replace(
+#     "def forward(self, x: Tensor, vec: Tensor, pe: Tensor) -> Tensor:",
+#     "def forward(self, x: Tensor, vec: Tensor, pe: Tensor, **kwargs) -> Tensor:"
+# )
 
-if s == original:
-    print("⚠️ Warning: No changes made - signatures may differ or already patched")
-    # Print the file to help debug
-    print("Looking for forward methods in model.py...")
-    for i, line in enumerate(original.split('\n')):
-        if 'def forward' in line:
-            print(f"  Line {i+1}: {line.strip()}")
-else:
-    p.write_text(s, encoding="utf-8")
-    print("✅ Patched FLUX: added **kwargs to forward methods")
-PY
+# if s == original:
+#     print("⚠️ Warning: No changes made - signatures may differ or already patched")
+#     # Print the file to help debug
+#     print("Looking for forward methods in model.py...")
+#     for i, line in enumerate(original.split('\n')):
+#         if 'def forward' in line:
+#             print(f"  Line {i+1}: {line.strip()}")
+# else:
+#     p.write_text(s, encoding="utf-8")
+#     print("✅ Patched FLUX: added **kwargs to forward methods")
+# PY
 
 # ============================================================
 # 2) MODEL DIRECTORIES (match workflow file names)
@@ -83,19 +75,6 @@ RUN mkdir -p /comfyui/models/checkpoints \
 RUN mkdir -p /comfyui/models/xlabs && \
     ln -sf /comfyui/models/ipadapter    /comfyui/models/xlabs/ipadapters && \
     ln -sf /comfyui/models/clip_vision  /comfyui/models/xlabs/clip_vision
-
-# ============================================================
-# 3) DOWNLOAD MODELS
-# ============================================================
-# Your workflow expects:
-#   ipadapter_file: "ip_adapter.safetensors"
-#   clip_vision:   "clip_vision_vit_l.safetensors"
-
-RUN pip install --no-cache-dir gdown
-
-# IP-Adapter model (from Google Drive)
-RUN gdown 1L2j1wGQZ5furxW5sEmIF0bafdm53XgOs \
-    -O /comfyui/models/ipadapter/ip_adapter.safetensors
 
 
 RUN wget --no-verbose \
