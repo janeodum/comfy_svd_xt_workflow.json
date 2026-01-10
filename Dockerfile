@@ -1,14 +1,19 @@
 FROM runpod/worker-comfyui:5.5.1-base
 
-# install custom nodes into comfyui (first node with --mode remote to fetch updated cache)
-# Could not resolve unknown_registry node VHS_VideoCombine — no aux_id provided; skipped
-# Could not resolve unknown_registry node WanImageToVideo — no aux_id provided; skipped
-# Could not resolve unknown_registry node CLIPVisionEncode — no aux_id provided; skipped
-# Could not resolve unknown_registry node CLIPVisionLoader — no aux_id provided; skipped
+SHELL ["/bin/bash", "-lc"]
 
-RUN comfy node install ComfyUI-VideoHelperSuite && \ 
-    comfy node install ComfyUI-VideoOutputBridge && \ 
-    comfy node install x-flux-comfyui
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ffmpeg curl ca-certificates wget \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /comfyui
+
+# # Custom nodes only (small)
+RUN mkdir -p /comfyui/custom_nodes && cd /comfyui/custom_nodes \
+    && git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git \
+    && git clone https://github.com/XLabs-AI/x-flux-comfyui.git \
+    && pip install --no-cache-dir -r x-flux-comfyui/requirements.txt
+    
 # download models into comfyui
 RUN comfy model download --url https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors --relative-path models/text_encoders --filename umt5_xxl_fp8_e4m3fn_scaled.safetensors
 RUN comfy model download --url https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors --relative-path models/vae --filename wan_2.1_vae.safetensors
