@@ -1,7 +1,7 @@
 # OMNIA WORKER - UPDATED WITH GIST model.py
 FROM runpod/worker-comfyui:5.5.1-base
 
-# 1. Install Custom Nodes properly using comfy-cli
+# 1. #Install Custom Nodes properly using comfy-cli
 RUN comfy node install ComfyUI-VideoHelperSuite \
     && comfy node install ComfyUI-VideoOutputBridge \
     && comfy node install x-flux-comfyui
@@ -30,6 +30,6 @@ RUN wget --no-verbose -O /comfyui/models/loras/Canopus-Pixar-3D-FluxDev-LoRA.saf
 RUN comfy model download --url https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors --relative-path models/diffusion_models/Wan2.1 --filename wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors
 
 # 5. Environment & Input Setup
-COPY input/ /comfyui/input/
+# COPY input/ /comfyui/input/
 
 RUN echo "Omnnia Worker Build with Gist Patch Complete"
