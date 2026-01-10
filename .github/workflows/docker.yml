@@ -9,7 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # 1. This MUST be the first step to re-partition the disk correctly
       - name: Maximize Build Space
         uses: easimon/maximize-build-space@v10
         with:
@@ -21,11 +20,9 @@ jobs:
           remove-codeql: 'true'
           remove-docker-images: 'true'
 
-      # 2. Checkout your code AFTER maximizing space
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 3. Monitor space gains (Optional but helpful for Omnnia debugging)
       - name: Check Disk Usage
         run: df -h
 
@@ -42,8 +39,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/omnia-comfy:latest
+          tags: ${{ secrets.DOCKER_USERNAME }}/omnia-comfy:v2
           context: .
-          # Important: if space is extremely tight, use 'no-cache: true' 
-          # but consider using GHA caching if the build is too slow.
           no-cache: true
+          provenance: false
