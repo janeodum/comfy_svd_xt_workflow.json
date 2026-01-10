@@ -1,5 +1,9 @@
 FROM runpod/worker-comfyui:5.5.1-base
+ARG CACHE_BUST=1
 
+# Everything below this line will be rebuilt from scratch
+RUN apt-get update && apt-get install -y ffmpeg
+RUN comfy node install ComfyUI-VideoHelperSuite
 # install custom nodes into comfyui (first node with --mode remote to fetch updated cache)
 RUN comfy node install --exit-on-fail x-flux-comfyui --mode remote
 RUN wget -O /comfyui/comfy/ldm/flux/model.py \
