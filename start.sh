@@ -3,7 +3,6 @@ set -e
 
 echo "🚀 Omnnia Worker Starting..."
 
-# Detect volume path
 if [ -d "/runpod-volume/models" ]; then
     VOLUME_PATH="/runpod-volume"
     echo "📦 Detected: Serverless (runpod-volume)"
@@ -11,45 +10,38 @@ elif [ -d "/workspace/models" ]; then
     VOLUME_PATH="/workspace"
     echo "📦 Detected: GPU Pod (workspace)"
 else
-    echo "⚠️ No network volume found! Models must exist in container."
+    echo "⚠️ No network volume found!"
     exec python -u /rp_handler.py
 fi
 
-echo "🔗 Linking models from $VOLUME_PATH..."
-
-# Wipe local model dirs and symlink to volume
-link_models() {
-    local src="$1"
-    local dst="$2"
-    
-    if [ -d "$src" ] || [ -f "$src" ]; then
-        rm -rf "$dst"
-        ln -sf "$src" "$dst"
-        echo "  ✅ Linked: $dst -> $src"
-    else
-        echo "  ⚠️ Missing: $src"
-    fi
-}
-
-# Link all model directoriesj
-link_models "$VOLUME_PATH/models/checkpoints" "/comfyui/models/checkpoints"
-link_models "$VOLUME_PATH/models/diffusion_models" "/comfyui/models/diffusion_models"
-link_models "$VOLUME_PATH/models/text_encoders" "/comfyui/models/text_encoders"
-link_models "$VOLUME_PATH/models/clip_vision" "/comfyui/models/clip_vision"
-link_models "$VOLUME_PATH/models/vae" "/comfyui/models/vae"
-link_models "$VOLUME_PATH/models/loras" "/comfyui/models/loras"
-link_models "$VOLUME_PATH/models/xlabs" "/comfyui/models/xlabs"
-
-# Also link clip directory if exists (for umt5)
-if [ -d "$VOLUME_PATH/models/clip" ]; then
-    link_models "$VOLUME_PATH/models/clip" "/comfyui/models/clip"
+# Link custom nodes
+echo "🔗 Linking custom nodes..."
+if [ -d "$VOLUME_PATH/custom_nodes" ]; then
+    for node in $VOLUME_PATH/custom_nodes/*; do
+        if [ -d "$node" ]; then
+            nodename=$(basename "$node")
+            rm -rf "/comfyui/custom_nodes/$nodename"
+            ln -sf "$node" "/comfyui/custom_nodes/$nodename"
+            echo "  ✅ Linked: $nodename"
+        fi
+    done
 fi
 
-echo "🎉 Model linking complete!"
-echo ""
-echo "📂 Model directories:"
-ls -la /comfyui/models/
+# Copy patched model.py if exists
+if [ -f "$VOLUME_PATH/model_patch.py" ]; then
+    cp "$VOLUME_PATH/model_patch.py" /comfyui/comfy/ldm/flux/model.py
+    echo "  ✅ Patched model.py"
+fi
 
-echo ""
-echo "🚀 Starting ComfyUI worker..."
+# Link models
+echo "🔗 Linking models..."
+ln -sf $VOLUME_PATH/models/checkpoints /comfyui/models/ 2>/dev/null
+ln -sf $VOLUME_PATH/models/diffusion_models /comfyui/models/ 2>/dev/null
+ln -sf $VOLUME_PATH/models/text_encoders /comfyui/models/ 2>/dev/null
+ln -sf $VOLUME_PATH/models/clip_vision /comfyui/models/ 2>/dev/null
+ln -sf $VOLUME_PATH/models/vae /comfyui/models/ 2>/dev/null
+ln -sf $VOLUME_PATH/models/loras /comfyui/models/ 2>/dev/null
+ln -sf $VOLUME_PATH/models/xlabs /comfyui/models/ 2>/dev/null
+
+echo "✅ Ready!"
 exec python -u /rp_handler.py
