@@ -13,8 +13,9 @@ RUN wget -O /comfyui/comfy/ldm/flux/model.py \
 
 # 3. Download Models (Grouped for easier debugging)
 # CLIP & IP-Adapter Models
+
 RUN comfy model download --url https://huggingface.co/XLabs-AI/flux-ip-adapter/resolve/main/ip_adapter.safetensors --relative-path models/xlabs/ipadapters --filename ip_adapter.safetensors
-RUN comfy model download --url https://huggingface.co/XLabs-AI/flux-ip-adapter/resolve/main/clip_vision_l.safetensors --relative-path models/clip_vision --filename clip_vision_l.safetensors
+RUN comfy model download --url https://huggingface.co/XLabs-AI/flux-ip-adapter/blob/d3cb0c5bb46ff37bf3deb241f02987dfcf9a7963/clip_vision_l.safetensors --relative-path models/clip_vision --filename clip_vision_l.safetensors
 
 # Wan 2.1 specific models
 RUN comfy model download --url https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors --relative-path models/text_encoders --filename umt5_xxl_fp8_e4m3fn_scaled.safetensors
