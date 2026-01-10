@@ -31,6 +31,5 @@ RUN comfy model download --url https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_
 
 # 5. Environment & Input Setup
 COPY input/ /comfyui/input/
-ENV EXTRA_MODEL_PATHS_CONFIG=/runpod-volume/extra_model_paths.yaml
 
 RUN echo "Omnnia Worker Build with Gist Patch Complete"
