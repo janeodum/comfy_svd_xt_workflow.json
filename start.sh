@@ -31,7 +31,7 @@ link_models() {
     fi
 }
 
-# Link all model directories
+# Link all model directoriesj
 link_models "$VOLUME_PATH/models/checkpoints" "/comfyui/models/checkpoints"
 link_models "$VOLUME_PATH/models/diffusion_models" "/comfyui/models/diffusion_models"
 link_models "$VOLUME_PATH/models/text_encoders" "/comfyui/models/text_encoders"
