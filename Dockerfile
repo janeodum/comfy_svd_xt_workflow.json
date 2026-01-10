@@ -1,4 +1,4 @@
-FROM runpod/worker-comfyui:5.5.1-base
+FROM runpod/worker-comfyui:5.5.0-base
 
 SHELL ["/bin/bash", "-lc"]
 
