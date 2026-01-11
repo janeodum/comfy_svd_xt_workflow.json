@@ -8,8 +8,6 @@ comfyui:
     clip: clip/
     vae: vae/
     loras: loras/
-    pulid: pulid/
-    insightface: insightface/
 
 # Network Volume for large models (symlinked at runtime)
 runpod_volume:
