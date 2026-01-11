@@ -9,7 +9,7 @@ RUN mkdir -p /comfyui/custom_nodes \
     && cd /comfyui/custom_nodes \
     && git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git \
     && git clone https://github.com/XLabs-AI/x-flux-comfyui.git \
-    && git clone https://github.com/0xbitches/ComfyUI-VideoOutputBridge.git
+    && git clone https://github.com/arthurtravers/ComfyUI-VideoOutputBridge.git
 
 # 3. Apply the Flux/Wan model.py Patch
 RUN wget -O /comfyui/comfy/ldm/flux/model.py \
