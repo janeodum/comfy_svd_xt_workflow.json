@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.5.1-base
-ARG CACHE_BUST=2
+ARG CACHE_BUST=3
 
 # 1. System dependencies
 RUN apt-get update && apt-get install -y ffmpeg
