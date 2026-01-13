@@ -1,5 +1,5 @@
 FROM runpod/worker-comfyui:5.5.1-base
-ARG CACHE_BUST=3
+ARG CACHE_BUST=4
 
 RUN apt-get update && apt-get install -y ffmpeg
 
@@ -12,7 +12,7 @@ RUN cd /comfyui/custom_nodes \
     && pip install -r x-flux-comfyui/requirements.txt
 
 # Patch VideoOutputBridge to fix subfolder issue
-RUN sed -i "s/'subfolder': 'output'/'subfolder': ''/g" /comfyui/custom_nodes/ComfyUI-VideoOutputBridge/*.py
+RUN sed -i 's/subfolder = p.parent.name.*/subfolder = ""/g' /comfyui/custom_nodes/ComfyUI-VideoOutputBridge/__init__.py
 
 # Apply the Flux/Wan model.py Patch
 RUN wget -O /comfyui/comfy/ldm/flux/model.py \
