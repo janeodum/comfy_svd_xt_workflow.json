@@ -3,14 +3,16 @@ ARG CACHE_BUST=3
 
 RUN apt-get update && apt-get install -y ffmpeg
 
-RUN comfy node install video-output-bridge
-
 # Install Custom Nodes WITH their requirements
 RUN cd /comfyui/custom_nodes \
+    && git clone https://github.com/arthurtravers/ComfyUI-VideoOutputBridge.git \
     && git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git \
     && git clone https://github.com/XLabs-AI/x-flux-comfyui.git \
     && pip install -r ComfyUI-VideoHelperSuite/requirements.txt \
     && pip install -r x-flux-comfyui/requirements.txt
+
+# Patch VideoOutputBridge to fix subfolder issue
+RUN sed -i "s/'subfolder': 'output'/'subfolder': ''/g" /comfyui/custom_nodes/ComfyUI-VideoOutputBridge/*.py
 
 # Apply the Flux/Wan model.py Patch
 RUN wget -O /comfyui/comfy/ldm/flux/model.py \
