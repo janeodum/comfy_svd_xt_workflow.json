@@ -18,6 +18,9 @@ RUN sed -i 's/subfolder = p.parent.name.*/subfolder = ""/g' /comfyui/custom_node
 RUN wget -O /comfyui/comfy/ldm/flux/model.py \
     "https://gist.githubusercontent.com/diveddie/d7b977e483f2ec486a3cf4f52bf9b409/raw/model.py"
 
+RUN mkdir -p /comfyui/models/diffusion_models/Wan2.1 \
+    && wget -O /comfyui/models/diffusion_models/Wan2.1/wan2.1_flf2v_720p_14B_fp8_e4m3fn.safetensors \
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_720p_14B_fp8_e4m3fn.safetensors"
 # Create extra_model_paths.yaml
 RUN echo "runpod_volume:" > /comfyui/extra_model_paths.yaml \
     && echo "    base_path: /runpod-volume/models" >> /comfyui/extra_model_paths.yaml \
